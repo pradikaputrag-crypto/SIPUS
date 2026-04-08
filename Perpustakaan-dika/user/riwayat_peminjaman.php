@@ -1,0 +1,145 @@
+<?php
+session_start();
+if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'user') {
+    header('Location: ../auth/login.php');
+    exit;
+}
+
+include '../config.php/config.php';
+
+$success = isset($_GET['success']) ? $_GET['success'] : '';
+$error = isset($_GET['error']) ? $_GET['error'] : '';
+
+$transactions = [];
+$userId = isset($_SESSION['user_id']) ? intval($_SESSION['user_id']) : (isset($_SESSION['id_user']) ? intval($_SESSION['id_user']) : 0);
+$query = "SELECT t.*, b.judul, b.penulis, b.penerbit FROM transaksi t LEFT JOIN buku b ON t.id_buku = b.id_buku WHERE t.id_anggota = ? ORDER BY t.id_transaksi DESC";
+$stmt = mysqli_prepare($koneksi, $query);
+if ($stmt) {
+    mysqli_stmt_bind_param($stmt, 'i', $userId);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    while ($row = mysqli_fetch_assoc($result)) {
+        $transactions[] = $row;
+    }
+    mysqli_stmt_close($stmt);
+} else {
+    $error = 'Gagal memuat riwayat peminjaman: ' . mysqli_error($koneksi);
+}
+?>
+
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Riwayat Peminjaman - Perpustakaan Digital</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-50">
+    <div class="flex h-screen bg-white">
+        <!-- Sidebar -->
+        <aside class="w-64 bg-gradient-to-b from-indigo-900 via-indigo-800 to-indigo-900 text-white shadow-2xl flex flex-col">
+            <div class="p-6 flex items-center gap-3 border-b border-indigo-700">
+                <img src="../img/logosipus.png" alt="SIPUS Logo" class="h-14 w-14 rounded-lg bg-white p-1" />
+                <div>
+                    <p class="font-bold text-lg">SIPUS</p>
+                    <p class="text-xs text-indigo-200">Perpustakaan Digital</p>
+                </div>
+            </div>
+            <nav class="flex-1 flex flex-col gap-1 p-4">
+                <a href="dashboard.php" class="px-4 py-3 rounded-lg hover:bg-indigo-700 text-indigo-100 transition duration-200 flex items-center gap-2">
+                    Dashboard
+                </a>
+                <a href="pinjam_buku.php" class="px-4 py-3 rounded-lg hover:bg-indigo-700 text-indigo-100 transition duration-200 flex items-center gap-2">
+                     Pinjam Buku
+                </a>
+                <a href="riwayat_peminjaman.php" class="px-4 py-3 rounded-lg bg-indigo-700 text-white font-medium transition duration-200 flex items-center gap-2">
+                     Riwayat Peminjaman
+                </a>
+                <a href="pengingat.php" class="px-4 py-3 rounded-lg hover:bg-indigo-700 text-indigo-100 transition duration-200 flex items-center gap-2">
+                     Pengingat Pengembalian
+                </a>
+            </nav>
+            <div class="border-t border-indigo-700 p-4">
+                <a href="../auth/logout.php" class="w-full px-4 py-3 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-lg transition duration-200 flex items-center justify-center gap-2">
+                     Logout
+                </a>
+            </div>
+        </aside>
+
+        <main class="flex-1 overflow-auto">
+            <div class="p-8 h-full">
+                <div class="max-w-6xl w-full mx-auto">
+                    <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+                        <h2 class="text-3xl font-bold text-slate-900">Riwayat Peminjaman</h2>
+                        <p class="text-slate-600 mt-2">Lihat status dan detail setiap peminjaman Anda.</p>
+                    </div>
+
+                <?php if ($success): ?>
+                    <div class="bg-green-100 text-green-800 border border-green-200 rounded-lg p-4 mb-6">
+                        <?php echo htmlspecialchars($success); ?>
+                    </div>
+                <?php endif; ?>
+
+                <?php if ($error): ?>
+                    <div class="bg-red-100 text-red-700 border border-red-200 rounded-lg p-4 mb-6">
+                        <?php echo htmlspecialchars($error); ?>
+                    </div>
+                <?php endif; ?>
+
+                    <div class="bg-white rounded-lg shadow-md p-6">
+                        <?php if (count($transactions) > 0): ?>
+                            <div class="overflow-x-auto">
+                                <table class="min-w-full divide-y divide-slate-200">
+                                    <thead class="bg-slate-50">
+                                        <tr>
+                                            <th class="px-4 py-3 text-left text-sm font-semibold text-slate-700">#</th>
+                                            <th class="px-4 py-3 text-left text-sm font-semibold text-slate-700">Judul Buku</th>
+                                            <th class="px-4 py-3 text-left text-sm font-semibold text-slate-700">Penulis</th>
+                                            <th class="px-4 py-3 text-left text-sm font-semibold text-slate-700">Pinjam</th>
+                                            <th class="px-4 py-3 text-left text-sm font-semibold text-slate-700">Kembali</th>
+                                            <th class="px-4 py-3 text-left text-sm font-semibold text-slate-700">Status</th>
+                                            <th class="px-4 py-3 text-left text-sm font-semibold text-slate-700">Aksi</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-slate-100">
+                                        <?php foreach ($transactions as $index => $tx): ?>
+                                            <tr class="hover:bg-slate-50">
+                                                <td class="px-4 py-3 text-sm text-slate-700"><?php echo $index + 1; ?></td>
+                                                <td class="px-4 py-3 text-sm text-slate-700"><?php echo htmlspecialchars($tx['judul']); ?></td>
+                                                <td class="px-4 py-3 text-sm text-slate-700"><?php echo htmlspecialchars($tx['penulis']); ?></td>
+                                                <td class="px-4 py-3 text-sm text-slate-700"><?php echo htmlspecialchars($tx['tanggal_pinjam']); ?></td>
+                                            <td class="px-4 py-3 text-sm text-slate-700"><?php echo htmlspecialchars($tx['tanggal_kembali']); ?></td>
+                                            <td class="px-4 py-3 text-sm text-slate-700">
+                                                <?php if ($tx['status'] === 'dipinjam'): ?>
+                                                    <span class="rounded-full bg-yellow-100 px-3 py-1 text-yellow-800 text-xs font-semibold">Dipinjam</span>
+                                                <?php else: ?>
+                                                    <span class="rounded-full bg-green-100 px-3 py-1 text-green-800 text-xs font-semibold">Dikembalikan</span>
+                                                <?php endif; ?>
+                                            </td>
+                                            <td class="px-4 py-3 text-sm text-slate-700">
+                                                <?php if ($tx['status'] === 'dipinjam'): ?>
+                                                    <form action="kembalikan.php" method="post" onsubmit="return confirm('Tandai buku sebagai dikembalikan?');">
+                                                        <input type="hidden" name="id_transaksi" value="<?php echo intval($tx['id_transaksi']); ?>">
+                                                        <button type="submit" class="rounded-lg bg-green-600 px-3 py-2 text-white hover:bg-green-700 transition">Kembalikan</button>
+                                                    </form>
+                                                <?php else: ?>
+                                                    <span class="text-slate-500">Tidak ada</span>
+                                                <?php endif; ?>
+                                            </td>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                </tbody>
+                            </table>
+                        </div>
+                    <?php else: ?>
+                        <div class="rounded-xl border border-slate-200 p-6 text-slate-600">
+                            Anda belum memiliki riwayat peminjaman.
+                        </div>
+                    <?php endif; ?>
+                </div>
+            </div>
+        </main>
+    </div>
+</body>
+</html>
